@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Carshare Access</title>
+<style>
+:root {
+  --bg: #f5f5f7;
+  --bg-2: #ffffff;
+  --text: #1d1d1f;
+  --text-2: #6e6e73;
+  --accent: #0071e3;
+  --accent-2: #0a84ff;
+  --glass: rgba(255,255,255,0.55);
+  --glass-border: rgba(255,255,255,0.7);
+  --glass-shadow: 0 8px 32px rgba(0,0,0,0.08);
+  --card: #ffffff;
+  --border: rgba(0,0,0,0.08);
+  --danger: #ff3b30;
+  --success: #34c759;
+  --nav-bg: rgba(255,255,255,0.72);
+}
+[data-theme="dark"] {
+  --bg: #000000;
+  --bg-2: #1c1c1e;
+  --text: #f5f5f7;
+  --text-2: #98989d;
+  --accent: #0a84ff;
+  --accent-2: #409cff;
+  --glass: rgba(28,28,30,0.55);
+  --glass-border: rgba(255,255,255,0.12);
+  --glass-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  --card: #1c1c1e;
+  --border: rgba(255,255,255,0.1);
+  --nav-bg: rgba(28,28,30,0.72);
+}
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html, body { height:100%; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow:hidden;
+  transition: background .4s ease, color .4s ease;
+  -webkit-font-smoothing: antialiased;
+}
+/* ambient gradient blobs */
+.bg-blob {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity .4s;
+}
+[data-theme="dark"] .bg-blob { opacity: 0.35; }
+.blob-1 { width: 480px; height:480px; background: radial-gradient(circle, #0071e3, transparent 70%); top:-140px; left:-120px; }
+.blob-2 { width: 420px; height:420px; background: radial-gradient(circle, #5e5ce6, transparent 70%); bottom:-160px; right:-120px; }
+.blob-3 { width: 320px; height:320px; background: radial-gradient(circle, #64d2ff, transparent 70%); top:40%; left:60%; }
+
+.screen {
+  position: fixed; inset:0;
+  display: none;
+  flex-direction: column;
+  z-index: 1;
+  padding: 24px 20px calc(96px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.screen.active { display: flex; }
+.screen::-webkit-scrollbar { display:none; }
+
+/* ============ AUTH SCREEN ============ */
+#screen-auth { justify-content: center; align-items:center; text-align:center; }
+.logo-mark {
+  width: 64px; height:64px; margin: 0 auto 28px;
+  border-radius: 18px;
+  background: linear-gradient(145deg, var(--accent), #5e5ce6);
+  display:flex; align-items:center; justify-content:center;
+  box-shadow: 0 10px 30px rgba(0,113,227,0.35);
+}
+.logo-mark svg { width:34px; height:34px; stroke:#fff; fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+h1.title { font-size: 32px; font-weight: 700; letter-spacing:-1px; margin-bottom:8px; }
+p.subtitle { font-size: 15px; color: var(--text-2); margin-bottom: 40px; max-width: 320px; line-height:1.4; }
+.auth-card {
+  width:100%; max-width: 400px;
+  background: var(--glass);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: 28px;
+  padding: 28px 24px;
+  box-shadow: var(--glass-shadow);
+}
+.field { margin-bottom: 16px; text-align:left; }
+.field label { display:block; font-size:13px; font-weight:500; color:var(--text-2); margin-bottom:8px; padding-left:4px; }
+.field input {
+  width:100%; padding: 16px 18px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  font-size: 17px; color: var(--text);
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+  font-family: inherit;
+}
+.field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(10,132,255,0.18); }
+.field input::placeholder { color: var(--text-2); opacity:.6; }
+
+.btn-primary {
+  width:100%; padding: 17px;
+  background: var(--accent);
+  color:#fff; border:none; border-radius: 16px;
+  font-size: 17px; font-weight:600; font-family:inherit;
+  cursor:pointer; margin-top: 8px;
+  transition: transform .15s, background .2s, opacity .2s;
+}
+.btn-primary:active { transform: scale(0.97); background: var(--accent-2); }
+.btn-primary:disabled { opacity: .5; cursor: default; }
+.auth-foot { margin-top: 20px; font-size: 12px; color: var(--text-2); line-height:1.5; padding: 0 8px; }
+
+/* ============ SCAN SCREEN ============ */
+#screen-scan { justify-content: flex-start; }
+.page-head { width:100%; text-align:center; margin-bottom: 28px; }
+.page-head h2 { font-size: 28px; font-weight:700; letter-spacing:-.5px; margin-bottom:6px; }
+.page-head p { font-size: 14px; color: var(--text-2); line-height:1.4; }
+
+.scan-zone {
+  width:100%; max-width: 420px; margin: 0 auto;
+  display:flex; flex-direction:column; align-items:center;
+}
+.shutter {
+  width: 220px; height: 220px;
+  border-radius: 44px;
+  background: var(--glass);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap: 14px; cursor:pointer;
+  position: relative; overflow:hidden;
+  transition: transform .2s;
+}
+.shutter:active { transform: scale(0.96); }
+.shutter svg { width:56px; height:56px; stroke: var(--accent); fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.shutter span { font-size: 15px; font-weight:600; color: var(--text); }
+.shutter.scanned { border-color: var(--success); }
+.shutter.scanned svg { stroke: var(--success); }
+
+.hint { margin-top: 22px; font-size: 13px; color: var(--text-2); text-align:center; max-width: 320px; line-height:1.5; }
+
+.btn-secondary {
+  margin-top: 24px; width:100%; max-width: 420px;
+  padding: 16px; border-radius: 16px;
+  background: var(--card); border: 1px solid var(--border);
+  color: var(--text); font-size:16px; font-weight:600; font-family:inherit;
+  cursor:pointer; transition: opacity .2s, transform .15s;
+}
+.btn-secondary:active { transform: scale(0.98); }
+.btn-secondary:disabled { opacity: .35; cursor:default; }
+
+/* ============ CONNECTING SCREEN ============ */
+#screen-connecting { justify-content:center; align-items:center; text-align:center; }
+.spinner {
+  width: 72px; height:72px; margin-bottom: 28px;
+  border-radius: 50%;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#screen-connecting h2 { font-size: 22px; font-weight:600; margin-bottom:10px; }
+#screen-connecting p { font-size: 15px; color: var(--text-2); margin-bottom: 26px; }
+.progress-track { width: 240px; height: 4px; background: var(--border); border-radius: 2px; overflow:hidden; }
+.progress-fill { height:100%; width:0%; background: var(--accent); border-radius:2px; transition: width .1s linear; }
+.connect-steps { margin-top: 32px; text-align:left; font-size:13px; color: var(--text-2); }
+.connect-steps div { padding: 6px 0; display:flex; align-items:center; gap:10px; opacity:.35; transition: opacity .3s; }
+.connect-steps div.done { opacity:1; color: var(--text); }
+.connect-steps .dot { width:6px; height:6px; border-radius:50%; background: var(--accent); flex-shrink:0; }
+
+/* ============ DASHBOARD SCREEN ============ */
+#screen-dash { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
+.dash-hero {
+  width:100%; max-width: 440px; margin: 0 auto 20px;
+  text-align: center;
+}
+.car-visual {
+  width:100%; height: 180px; border-radius: 24px;
+  background: linear-gradient(145deg, var(--bg-2), var(--card));
+  border: 1px solid var(--border);
+  display:flex; align-items:center; justify-content:center;
+  margin-bottom: 18px; position:relative; overflow:hidden;
+}
+.car-visual svg { width: 90px; height:90px; stroke: var(--accent); fill:none; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; }
+.status-pill {
+  position:absolute; top:14px; right:14px;
+  padding: 6px 12px; border-radius: 20px;
+  background: rgba(52,199,89,0.15); color: var(--success);
+  font-size: 12px; font-weight:600; display:flex; align-items:center; gap:6px;
+}
+.status-pill .led { width:7px; height:7px; border-radius:50%; background: var(--success); box-shadow: 0 0 8px var(--success); }
+
+.stats-row { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+.stat-card {
+  background: var(--glass);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px; padding: 18px 16px; box-shadow: var(--glass-shadow);
+}
+.stat-card .label { font-size:12px; color:var(--text-2); margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+.stat-card .label svg { width:14px; height:14px; stroke: var(--text-2); fill:none; stroke-width:2; }
+.stat-card .value { font-size: 26px; font-weight:700; letter-spacing:-.5px; font-variant-numeric: tabular-nums; }
+.stat-card .value small { font-size:14px; font-weight:500; color:var(--text-2); }
+
+.controls { display:flex; flex-direction:column; gap:12px; max-width:440px; margin: 0 auto; width:100%; }
+.control-item {
+  display:flex; align-items:center; justify-content:space-between;
+  padding: 18px 18px; border-radius: 18px;
+  background: var(--glass);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+.control-item .ci-left { display:flex; align-items:center; gap:14px; }
+.control-icon {
+  width:40px; height:40px; border-radius:12px;
+  background: rgba(10,132,255,0.12);
+  display:flex; align-items:center; justify-content:center;
+}
+.control-icon svg { width:22px; height:22px; stroke: var(--accent); fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.control-item .ci-title { font-size:15px; font-weight:600; }
+.control-item .ci-sub { font-size:12px; color:var(--text-2); margin-top:2px; }
+
+/* toggle */
+.toggle { width: 51px; height: 31px; border-radius: 16px; background: var(--border); position:relative; cursor:pointer; transition: background .25s; flex-shrink:0; }
+.toggle.on { background: var(--success); }
+.toggle::after {
+  content:''; position:absolute; top:2px; left:2px;
+  width:27px; height:27px; border-radius:50%; background:#fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2); transition: transform .25s;
+}
+.toggle.on::after { transform: translateX(20px); }
+
+.action-btn {
+  display:flex; align-items:center; justify-content:center; gap:10px;
+  width:100%; padding:17px; border-radius:18px;
+  background: var(--accent); color:#fff; border:none;
+  font-size:16px; font-weight:600; font-family:inherit; cursor:pointer;
+  transition: transform .15s, background .2s;
+  margin-top: 4px;
+}
+.action-btn:active { transform: scale(0.98); background: var(--accent-2); }
+.action-btn svg { width:20px; height:20px; stroke:#fff; fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+
+.notice {
+  max-width:440px; margin: 18px auto 0; width:100%;
+  display:flex; gap:10px; padding: 14px 16px;
+  background: rgba(10,132,255,0.08); border-radius:14px;
+  font-size:12.5px; color: var(--text-2); line-height:1.5;
+}
+.notice svg { width:18px; height:18px; stroke: var(--accent); fill:none; stroke-width:2; flex-shrink:0; margin-top:1px; }
+
+/* ============ SETTINGS SCREEN ============ */
+#screen-settings { align-items:center; }
+.settings-wrap { width:100%; max-width:440px; }
+.section-title { font-size:13px; font-weight:600; color:var(--text-2); text-transform:uppercase; letter-spacing:.5px; margin: 24px 0 10px 8px; }
+.settings-group {
+  background: var(--glass);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px; overflow:hidden; box-shadow: var(--glass-shadow);
+}
+.setting-row {
+  display:flex; align-items:center; justify-content:space-between;
+  padding: 16px 18px; border-bottom: 1px solid var(--border);
+}
+.setting-row:last-child { border-bottom:none; }
+.setting-row .label { font-size:15px; font-weight:500; display:flex; align-items:center; gap:12px; }
+.setting-row .label svg { width:20px; height:20px; stroke: var(--text-2); fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.segmented { display:flex; background: var(--border); border-radius: 10px; padding:2px; }
+.segmented button {
+  padding: 6px 14px; border:none; background:transparent; color: var(--text-2);
+  font-size:13px; font-weight:500; font-family:inherit; border-radius:8px; cursor:pointer;
+  transition: background .2s, color .2s;
+}
+.segmented button.active { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.profile-card {
+  display:flex; align-items:center; gap:14px; padding: 20px 18px;
+}
+.avatar {
+  width:52px; height:52px; border-radius:50%;
+  background: linear-gradient(145deg, var(--accent), #5e5ce6);
+  display:flex; align-items:center; justify-content:center;
+  color:#fff; font-size:20px; font-weight:600; flex-shrink:0;
+}
+.profile-info .pname { font-size:17px; font-weight:600; }
+.profile-info .pkey { font-size:12px; color:var(--text-2); margin-top:3px; font-family: "SF Mono", ui-monospace, monospace; }
+.version-row { display:flex; justify-content:space-between; padding:16px 18px; font-size:15px; }
+.version-row .vval { color: var(--text-2); }
+.logout-btn {
+  width:100%; padding:16px; border-radius:16px; border:none;
+  background: var(--card); color: var(--danger);
+  font-size:16px; font-weight:600; font-family:inherit; cursor:pointer;
+  margin-top: 24px; border:1px solid var(--border);
+  transition: transform .15s;
+}
+.logout-btn:active { transform: scale(0.98); }
+
+/* ============ NAV BAR (pill) ============ */
+.nav-bar {
+  position: fixed; left:50%; transform: translateX(-50%);
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  display:flex; gap:4px; padding:6px;
+  background: var(--nav-bg);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: 40px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+  z-index: 100;
+  transition: transform .3s ease, opacity .3s ease;
+}
+.nav-bar.hidden { transform: translateX(-50%) translateY(140px); opacity:0; pointer-events:none; }
+.nav-btn {
+  display:flex; align-items:center; gap:8px;
+  padding: 12px 22px; border-radius: 30px;
+  background: transparent; border:none; cursor:pointer;
+  color: var(--text-2); font-size:15px; font-weight:500; font-family:inherit;
+  transition: background .25s, color .25s;
+}
+.nav-btn svg { width:22px; height:22px; stroke: currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.nav-btn.active { background: var(--accent); color:#fff; }
+
+/* camera modal */
+.cam-modal {
+  position: fixed; inset:0; z-index:200; background:#000;
+  display:none; flex-direction:column;
+}
+.cam-modal.open { display:flex; }
+.cam-modal video { flex:1; object-fit:cover; width:100%; }
+.cam-topbar { position:absolute; top:0; left:0; right:0; padding: 20px; display:flex; justify-content:space-between; align-items:center; z-index:5; }
+.cam-close {
+  width:40px; height:40px; border-radius:50%; background: rgba(255,255,255,0.2);
+  backdrop-filter: blur(10px); border:none; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+}
+.cam-close svg { width:20px; height:20px; stroke:#fff; fill:none; stroke-width:2.5; stroke-linecap:round; }
+.cam-frame {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  width: 75%; max-width: 320px; height: 130px;
+  border: 2px solid rgba(255,255,255,0.5); border-radius: 16px;
+  pointer-events:none;
+}
+.cam-frame::before, .cam-frame::after {
+  content:''; position:absolute; width:24px; height:24px;
+  border: 3px solid var(--accent);
+}
+.cam-frame::before { top:-2px; left:-2px; border-right:none; border-bottom:none; border-radius: 16px 0 0 0; }
+.cam-frame::after { bottom:-2px; right:-2px; border-left:none; border-top:none; border-radius: 0 0 16px 0; }
+.cam-hint { position:absolute; top: calc(50% + 80px); left:0; right:0; text-align:center; color:#fff; font-size:14px; font-weight:500; text-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+.cam-bottom { position:absolute; bottom:0; left:0; right:0; padding: 30px 0 calc(40px + env(safe-area-inset-bottom)); display:flex; justify-content:center; }
+.cam-shoot {
+  width:72px; height:72px; border-radius:50%;
+  background:#fff; border: 5px solid rgba(255,255,255,0.4);
+  cursor:pointer; transition: transform .15s;
+}
+.cam-shoot:active { transform: scale(0.92); }
+
+.hidden { display:none !important; }
+</style>
+</head>
+<body data-theme="light">
+
+<div class="bg-blob blob-1"></div>
+<div class="bg-blob blob-2"></div>
+<div class="bg-blob blob-3"></div>
+
+<!-- ============ AUTH ============ -->
+<div class="screen active" id="screen-auth">
+  <div class="logo-mark">
+    <svg viewBox="0 0 24 24"><path d="M5 17h14M6 17l1.5-5h9L18 17M8 12l1-3h6l1 3"/><circle cx="8" cy="17.5" r="1.5"/><circle cx="16" cy="17.5" r="1.5"/></svg>
+  </div>
+  <h1 class="title">Carshare Access</h1>
+  <p class="subtitle">Введите ключ доступа и имя пользователя, выданные менеджером, чтобы активировать сессию.</p>
+  <div class="auth-card">
+    <div class="field">
+      <label>Ключ доступа</label>
+      <input type="text" id="inp-key" placeholder="XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="field">
+      <label>Имя пользователя</label>
+      <input type="text" id="inp-nick" placeholder="Ваш никнейм" autocomplete="off" spellcheck="false">
+    </div>
+    <button class="btn-primary" id="btn-login" disabled>Активировать</button>
+    <div class="auth-foot">Ключ выдается персонально. Один ключ — одна активная сессия.</div>
+  </div>
+</div>
+
+<!-- ============ SCAN ============ -->
+<div class="screen" id="screen-scan">
+  <div class="page-head">
+    <h2>Сканирование</h2>
+    <p>Наведите камеру на номерной знак автомобиля, чтобы установить соединение.</p>
+  </div>
+  <div class="scan-zone">
+    <div class="shutter" id="shutter">
+      <svg viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/><circle cx="12" cy="12.5" r="3.5"/></svg>
+      <span>Сфотографировать</span>
+    </div>
+    <div class="hint" id="scan-hint">Откроется камера устройства. Убедитесь, что номер полностью в кадре.</div>
+    <button class="btn-secondary" id="btn-confirm" disabled>Подтвердить автомобиль</button>
+  </div>
+</div>
+
+<!-- ============ CONNECTING ============ -->
+<div class="screen" id="screen-connecting">
+  <div class="spinner"></div>
+  <h2>Подключение к автомобилю</h2>
+  <p>Синхронизация с бортовым модулем...</p>
+  <div class="progress-track"><div class="progress-fill" id="prog-fill"></div></div>
+  <div class="connect-steps">
+    <div id="step-1"><span class="dot"></span> Проверка ключа доступа</div>
+    <div id="step-2"><span class="dot"></span> Сопоставление с номерным знаком</div>
+    <div id="step-3"><span class="dot"></span> Установка защищенного канала</div>
+    <div id="step-4"><span class="dot"></span> Активация управления</div>
+  </div>
+</div>
+
+<!-- ============ DASHBOARD ============ -->
+<div class="screen" id="screen-dash">
+  <div class="dash-hero">
+    <div class="car-visual">
+      <div class="status-pill"><span class="led"></span>Подключено</div>
+      <svg viewBox="0 0 24 24"><path d="M3 16h18M4 16l1.8-6h12.4L20 16M7 10l1-3h8l1 3"/><circle cx="7.5" cy="16.5" r="1.6"/><circle cx="16.5" cy="16.5" r="1.6"/></svg>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="label"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Время сессии</div>
+        <div class="value" id="stat-time">00:00</div>
+      </div>
+      <div class="stat-card">
+        <div class="label"><svg viewBox="0 0 24 24"><path d="M12 3v18M6 8h9a3 3 0 0 1 0 6H8a3 3 0 0 0 0 6h9"/></svg>Начислено</div>
+        <div class="value" id="stat-money">0 <small>₽</small></div>
+      </div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="label"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l4 2"/></svg>Скорость</div>
+        <div class="value" id="stat-speed">0 <small>км/ч</small></div>
+      </div>
+      <div class="stat-card">
+        <div class="label"><svg viewBox="0 0 24 24"><path d="M4 20V8l6-4 6 4v12M10 20v-6h4v6"/></svg>Транспорт</div>
+        <div class="value" id="stat-plate" style="font-size:18px;">—</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="control-item">
+      <div class="ci-left">
+        <div class="control-icon"><svg viewBox="0 0 24 24"><path d="M6 12V8a6 6 0 0 1 12 0v4"/><rect x="4" y="12" width="16" height="9" rx="2"/><circle cx="12" cy="16.5" r="1.2"/></svg></div>
+        <div>
+          <div class="ci-title">Открыть дверь</div>
+          <div class="ci-sub">Разблокировка центрального замка</div>
+        </div>
+      </div>
+      <div class="toggle" data-toggle="door"></div>
+    </div>
+    <div class="control-item">
+      <div class="ci-left">
+        <div class="control-icon"><svg viewBox="0 0 24 24"><path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></div>
+        <div>
+          <div class="ci-title">Геозоны</div>
+          <div class="ci-sub">Ограничения по территории</div>
+        </div>
+      </div>
+      <div class="toggle on" data-toggle="geo"></div>
+    </div>
+    <div class="control-item">
+      <div class="ci-left">
+        <div class="control-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg></div>
+        <div>
+          <div class="ci-title">GPS-трекер</div>
+          <div class="ci-sub">Передача координат</div>
+        </div>
+      </div>
+      <div class="toggle on" data-toggle="gps"></div>
+    </div>
+    <button class="action-btn" id="btn-engine">
+      <svg viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>
+      Запустить двигатель
+    </button>
+  </div>
+
+  <div class="notice">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+    <span>Оплата производится с корпоративного аккаунта компании. С вашей стороны списания не производятся — тариф 27 ₽/мин отображается для внутренней отчетности.</span>
+  </div>
+</div>
+
+<!-- ============ SETTINGS ============ -->
+<div class="screen" id="screen-settings">
+  <div class="settings-wrap">
+    <div class="page-head" style="margin-bottom:8px; text-align:left;">
+      <h2 style="text-align:left;">Настройки</h2>
+    </div>
+
+    <div class="section-title">Профиль</div>
+    <div class="settings-group">
+      <div class="profile-card">
+        <div class="avatar" id="avatar-init">?</div>
+        <div class="profile-info">
+          <div class="pname" id="prof-nick">—</div>
+          <div class="pkey" id="prof-key">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">Внешний вид</div>
+    <div class="settings-group">
+      <div class="setting-row">
+        <div class="label"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>Тема</div>
+        <div class="segmented">
+          <button data-theme-btn="light" class="active">Светлая</button>
+          <button data-theme-btn="dark">Темная</button>
+        </div>
+      </div>
+      <div class="setting-row">
+        <div class="label"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>Язык</div>
+        <div class="segmented">
+          <button data-lang-btn="ru" class="active">RU</button>
+          <button data-lang-btn="en">EN</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">О приложении</div>
+    <div class="settings-group">
+      <div class="version-row"><span>Версия</span><span class="vval">1.0</span></div>
+      <div class="version-row"><span>Сборка</span><span class="vval">2026.04.11</span></div>
+    </div>
+
+    <button class="logout-btn" id="btn-logout">Выйти из сессии</button>
+  </div>
+</div>
+
+<!-- ============ CAMERA MODAL ============ -->
+<div class="cam-modal" id="cam-modal">
+  <video id="cam-video" autoplay playsinline muted></video>
+  <div class="cam-frame"></div>
+  <div class="cam-hint">Номерной знак в рамке</div>
+  <div class="cam-topbar">
+    <button class="cam-close" id="cam-close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <div class="cam-bottom">
+    <button class="cam-shoot" id="cam-shoot"></button>
+  </div>
+</div>
+
+<!-- ============ NAV BAR ============ -->
+<div class="nav-bar hidden" id="nav-bar">
+  <button class="nav-btn active" data-nav="scan">
+    <svg viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M3 12h18"/></svg>
+    Сканирование
+  </button>
+  <button class="nav-btn" data-nav="settings">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    Настройки
+  </button>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  // ---------- state ----------
+  const state = {
+    key: '',
+    nick: '',
+    plate: '',
+    scanned: false,
+    connected: false,
+    sessionStart: 0,
+    timerId: null,
+    moneyTimerId: null,
+    speedTimerId: null,
+    money: 0,
+    seconds: 0,
+    lang: 'ru'
+  };
+
+  const $ = id => document.getElementById(id);
+
+  // ---------- screen navigation ----------
+  function showScreen(name){
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    const el = $('screen-' + name);
+    if (el) el.classList.add('active');
+  }
+  function showNav(on){ $('nav-bar').classList.toggle('hidden', !on); }
+
+  // ---------- auth ----------
+  const inpKey = $('inp-key');
+  const inpNick = $('inp-nick');
+  const btnLogin = $('btn-login');
+
+  function validateAuth(){
+    const k = inpKey.value.trim();
+    const n = inpNick.value.trim();
+    btnLogin.disabled = !(k.length >= 6 && n.length >= 2);
+  }
+  inpKey.addEventListener('input', validateAuth);
+  inpNick.addEventListener('input', validateAuth);
+
+  btnLogin.addEventListener('click', () => {
+    state.key = inpKey.value.trim();
+    state.nick = inpNick.value.trim();
+    // update profile
+    $('prof-nick').textContent = state.nick;
+    $('prof-key').textContent = state.key;
+    $('avatar-init').textContent = state.nick.charAt(0).toUpperCase();
+    showScreen('scan');
+    showNav(true);
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.nav === 'scan'));
+  });
+
+  // ---------- nav bar ----------
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.nav;
+      if (target === 'scan') {
+        if (state.connected) showScreen('dash');
+        else showScreen('scan');
+      } else {
+        showScreen('settings');
+      }
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b === btn));
+    });
+  });
+
+  // ---------- camera ----------
+  const camModal = $('cam-modal');
+  const camVideo = $('cam-video');
+  const camShoot = $('cam-shoot');
+  let stream = null;
+
+  async function openCamera(){
+    camModal.classList.add('open');
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false
+      });
+      camVideo.srcObject = stream;
+    } catch (e) {
+      // camera unavailable — still allow fake capture flow
+      console.warn('camera unavailable', e);
+    }
+  }
+  function closeCamera(){
+    camModal.classList.remove('open');
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    camVideo.srcObject = null;
+  }
+
+  $('shutter').addEventListener('click', openCamera);
+  $('cam-close').addEventListener('click', closeCamera);
+
+  camShoot.addEventListener('click', () => {
+    // fake capture — accept ANY plate
+    state.scanned = true;
+    state.plate = generatePlate();
+    closeCamera();
+
+    const shutter = $('shutter');
+    shutter.classList.add('scanned');
+    shutter.querySelector('span').textContent = 'Номер захвачен';
+    shutter.querySelector('svg').innerHTML = '<path d="M5 13l4 4L19 7"/>';
+
+    $('scan-hint').textContent = 'Номерной знак распознан. Нажмите «Подтвердить автомобиль» для синхронизации.';
+    $('btn-confirm').disabled = false;
+  });
+
+  function generatePlate(){
+    const L = 'АВЕКМНОРСТУХ';
+    const r = () => L[Math.floor(Math.random()*L.length)];
+    const d = () => Math.floor(Math.random()*10);
+    const reg = ['77','99','97','177','199','777','197','799'];
+    return r() + d() + d() + d() + r() + r() + ' ' + reg[Math.floor(Math.random()*reg.length)];
+  }
+
+  // ---------- confirm + connecting ----------
+  $('btn-confirm').addEventListener('click', () => {
+    if (!state.scanned) return;
+    showNav(false);
+    showScreen('connecting');
+    runConnection();
+  });
+
+  function runConnection(){
+    const fill = $('prog-fill');
+    const steps = ['step-1','step-2','step-3','step-4'];
+    let p = 0;
+    const total = 10000; // 10 seconds
+    const tick = 50;
+    const inc = 100 / (total / tick);
+
+    const id = setInterval(() => {
+      p = Math.min(100, p + inc);
+      fill.style.width = p + '%';
+
+      const stage = Math.floor(p / 25);
+      steps.forEach((s, i) => {
+        $(s).classList.toggle('done', i < stage || (i === stage && p >= (i+1)*25));
+      });
+
+      if (p >= 100) {
+        clearInterval(id);
+        setTimeout(() => {
+          state.connected = true;
+          $('stat-plate').textContent = state.plate;
+          showScreen('dash');
+          showNav(true);
+          document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.nav === 'scan'));
+          startSession();
+        }, 300);
+      }
+    }, tick);
+  }
+
+  // ---------- session timers ----------
+  function startSession(){
+    if (state.timerId) return;
+    state.sessionStart = Date.now();
+    state.seconds = 0;
+    state.money = 0;
+
+    // time counter
+    state.timerId = setInterval(() => {
+      state.seconds++;
+      const m = String(Math.floor(state.seconds/60)).padStart(2,'0');
+      const s = String(state.seconds%60).padStart(2,'0');
+      $('stat-time').textContent = m + ':' + s;
+    }, 1000);
+
+    // money: 27 ₽/min → 0.45 ₽/sec
+    state.moneyTimerId = setInterval(() => {
+      state.money += 27/60;
+      $('stat-money').innerHTML = state.money.toFixed(0) + ' <small>₽</small>';
+    }, 1000);
+
+    // fake speed
+    state.speedTimerId = setInterval(() => {
+      const base = 40 + Math.sin(Date.now()/4000) * 25 + (Math.random()*6 - 3);
+      const spd = Math.max(0, Math.round(base));
+      $('stat-speed').innerHTML = spd + ' <small>км/ч</small>';
+    }, 900);
+  }
+
+  function stopSession(){
+    clearInterval(state.timerId);
+    clearInterval(state.moneyTimerId);
+    clearInterval(state.speedTimerId);
+    state.timerId = state.moneyTimerId = state.speedTimerId = null;
+  }
+
+  // ---------- toggles ----------
+  document.querySelectorAll('.toggle').forEach(t => {
+    t.addEventListener('click', () => t.classList.toggle('on'));
+  });
+
+  // ---------- engine button ----------
+  const btnEngine = $('btn-engine');
+  let engineOn = false;
+  btnEngine.addEventListener('click', () => {
+    engineOn = !engineOn;
+    btnEngine.innerHTML = engineOn
+      ? '<svg viewBox="0 0 24 24"><path d="M12 3v18M5 8h10a3 3 0 0 1 0 6H8a3 3 0 0 0 0 6h10"/></svg> Остановить двигатель'
+      : '<svg viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg> Запустить двигатель';
+  });
+
+  // ---------- theme ----------
+  document.querySelectorAll('[data-theme-btn]').forEach(b => {
+    b.addEventListener('click', () => {
+      const th = b.dataset.themeBtn;
+      document.body.setAttribute('data-theme', th);
+      document.querySelectorAll('[data-theme-btn]').forEach(x => x.classList.toggle('active', x === b));
+    });
+  });
+
+  // ---------- language (visual only for now) ----------
+  document.querySelectorAll('[data-lang-btn]').forEach(b => {
+    b.addEventListener('click', () => {
+      state.lang = b.dataset.langBtn;
+      document.querySelectorAll('[data-lang-btn]').forEach(x => x.classList.toggle('active', x === b));
+    });
+  });
+
+  // ---------- logout ----------
+  $('btn-logout').addEventListener('click', () => {
+    stopSession();
+    state.connected = false;
+    state.scanned = false;
+    state.key = state.nick = state.plate = '';
+    state.money = 0; state.seconds = 0;
+    inpKey.value = ''; inpNick.value = '';
+    btnLogin.disabled = true;
+
+    const shutter = $('shutter');
+    shutter.classList.remove('scanned');
+    shutter.querySelector('span').textContent = 'Сфотографировать';
+    shutter.querySelector('svg').innerHTML = '<path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/><circle cx="12" cy="12.5" r="3.5"/>';
+    $('scan-hint').textContent = 'Откроется камера устройства. Убедитесь, что номер полностью в кадре.';
+    $('btn-confirm').disabled = true;
+    $('stat-time').textContent = '00:00';
+    $('stat-money').innerHTML = '0 <small>₽</small>';
+    $('stat-speed').innerHTML = '0 <small>км/ч</small>';
+    $('stat-plate').textContent = '—';
+
+    showScreen('auth');
+    showNav(false);
+  });
+
+  // prevent context menu long-press on toggles
+  document.addEventListener('contextmenu', e => {
+    if (e.target.closest('.toggle')) e.preventDefault();
+  });
+
+})();
+</script>
+</body>
+</html>
